@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice Order 80mm</title>
+    <style>
+        /* สไตล์หน้าจอแอป */
+        body { font-family: 'Tahoma', sans-serif; background-color: #f4f7f6; display: flex; justify-content: center; padding: 20px; }
+        .pos-card { background: white; width: 100%; max-width: 400px; padding: 20px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        h2 { text-align: center; color: #333; margin-top: 0; }
+        
+        .section { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; color: #666; }
+        input[type="number"] { width: 100%; padding: 12px; box-sizing: border-box; border: 2px solid #ddd; border-radius: 8px; font-size: 18px; }
+        
+        .btn { width: 100%; padding: 15px; border: none; border-radius: 8px; font-size: 18px; font-weight: bold; cursor: pointer; margin-bottom: 10px; transition: 0.2s; }
+        .btn-voice { background-color: #ff4757; color: white; }
+        .btn-voice:active { background-color: #ff6b81; transform: scale(0.98); }
+        .btn-print { background-color: #2ed573; color: white; margin-top: 10px; }
+        .btn-clear { background-color: #f1f2f6; color: #333; font-size: 14px; }
+
+        #order-list { border: 1px dashed #ccc; padding: 10px; border-radius: 8px; min-height: 100px; background: #fafafa; }
+        .item { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #eee; }
+
+        /* สไตล์สำหรับเครื่องพิมพ์ 80mm */
+        @media print {
+            body * { visibility: hidden; }
+            #bill, #bill * { visibility: visible; }
+            #bill { position: absolute; left: 0; top: 0; width: 80mm; padding: 2mm; display: block !important; }
+            .no-print { display: none; }
+            @page { size: 80mm auto; margin: 0; }
+        }
+        #bill { display: none; font-size: 12pt; line-height: 1.2; }
+    </style>
+</head>
+<body>
+
+<div class="pos-card no-print">
+    <h2>📝 สั่งอาหาร</h2>
+    
+    <div class="section">
+        <label>เลขโต๊ะ:</label>
+        <input type="number" id="table-input" placeholder="00" oninput="updateBill()">
+    </div>
+
+    <div class="section">
+        <label>รายการอาหาร:</label>
+        <div id="order-list">
+            </div>
+        <button class="btn btn-voice" onclick="startVoice()">🎤 กดเพื่อพูดเมนู</button>
+    </div>
+
+    <button class="btn btn-print" onclick="printBill()">🖨️ พิมพ์ใบแจ้งหนี้ (80mm)</button>
+    <button class="btn btn-clear" onclick="resetOrder()">ล้างหน้าจอ</button>
+</div>
+
+<div id="bill">
+    <div style="text-align: center;">
+        <strong style="font-size: 16pt;">ใบสั่งอาหาร</strong><br>
+        --------------------------------
+    </div>
+    <p>โต๊ะที่: <span id="bill-table-num">-</span></p>
+    <div id="bill-items-list">
+        </div>
+    <div style="text-align: center;">
+        --------------------------------<br>
+        ขอบคุณที่ใช้บริการ<br>
+        <span id="bill-time"></span>
+    </div>
+</div>
+
+<script>
+    const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+    recognition.lang = 'th-TH';
+    let orders = [];
+
+    function startVoice() {
+        recognition.start();
+        document.querySelector('.btn-voice').innerText = "กำลังฟัง...";
+    }
+
+    recognition.onresult = (event) => {
+        const text = event.results[0][0].transcript;
+        document.querySelector('.btn-voice').innerText = "🎤 กดเพื่อพูดเมนู";
+        if (text.trim() !== "") {
+            orders.push(text);
+            updateUI();
+        }
+    };
+
+    function updateBill() {
+        const tableNum = document.getElementById('table-input').value;
+        document.getElementById('bill-table-num').innerText = tableNum || "-";
+    }
+
+    function updateUI() {
+        const list = document.getElementById('order-list');
+        const billList = document.getElementById('bill-items-list');
+        
+        list.innerHTML = "";
+        billList.innerHTML = "";
+
+        orders.forEach((item, index) => {
+            list.innerHTML += `<div class="item"><span>${index + 1}. ${item}</span></div>`;
+            billList.innerHTML += `<div style="display:flex; justify-content:space-between;"><span>${item}</span><span>1</span></div>`;
+        });
+        updateBill();
+    }
+
+    function printBill() {
+        if (orders.length === 0) {
+            alert("กรุณาสั่งอาหารก่อนพิมพ์ครับ");
+            return;
+        }
+        document.getElementById('bill-time').innerText = new Date().toLocaleString('th-TH');
+        window.print();
+    }
+
+    function resetOrder() {
+        orders = [];
+        document.getElementById('table-input').value = "";
+        updateUI();
+    }
+</script>
+
+</body>
+</html>
