@@ -3,129 +3,144 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Voice POS - Xprinter</title>
+    <title>Smart Voice POS</title>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f8f9fa; margin: 0; padding: 15px; }
-        .container { max-width: 450px; margin: auto; }
-        .card { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); margin-bottom: 15px; }
-        h3 { margin-top: 0; color: #333; display: flex; align-items: center; }
+        :root { --primary: #3f72af; --bg: #f5f7fa; --text: #333; }
+        body { font-family: -apple-system, sans-serif; background: var(--bg); margin: 0; padding: 0; color: var(--text); }
         
-        /* ส่วนตั้งค่า (Add Printer) */
-        .setting-section { background: #e9ecef; border-left: 5px solid #0d6efd; }
-        input[type="text"], input[type="number"] { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
+        /* Navigation Tab */
+        .bottom-nav { position: fixed; bottom: 0; width: 100%; background: white; display: flex; box-shadow: 0 -2px 10px rgba(0,0,0,0.1); }
+        .nav-item { flex: 1; padding: 15px; text-align: center; cursor: pointer; font-weight: bold; color: #666; }
+        .nav-item.active { color: var(--primary); border-top: 3px solid var(--primary); }
+
+        /* Main Screen Container */
+        .screen { display: none; padding: 20px; padding-bottom: 80px; }
+        .screen.active { display: block; }
+
+        /* Card & UI Elements */
+        .card { background: white; border-radius: 12px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+        .printer-card { border: 1px solid #ddd; padding: 15px; border-radius: 10px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+        .btn { padding: 12px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; width: 100%; }
+        .btn-voice { background: #e74c3c; color: white; height: 80px; font-size: 20px; border-radius: 40px; }
+        .btn-print { background: #27ae60; color: white; font-size: 18px; }
         
-        /* ส่วนสั่งอาหาร */
-        #display-list { min-height: 100px; border-bottom: 2px solid #eee; margin-bottom: 15px; font-size: 18px; color: #444; }
-        .item { padding: 8px 0; border-bottom: 1px solid #f1f1f1; }
-        
-        /* ปุ่มต่างๆ */
-        .btn { width: 100%; padding: 16px; border: none; border-radius: 10px; font-size: 18px; font-weight: bold; cursor: pointer; transition: 0.2s; margin-top: 10px; }
-        .btn-save { background: #0d6efd; color: white; padding: 8px; font-size: 14px; }
-        .btn-voice { background: #dc3545; color: white; box-shadow: 0 4px 0 #b02a37; }
-        .btn-voice:active { transform: translateY(4px); box-shadow: none; }
-        .btn-print { background: #198754; color: white; }
-        
-        .status-badge { font-size: 12px; padding: 4px 8px; border-radius: 5px; background: #eee; color: #666; display: inline-block; margin-top: 5px; }
+        /* Modal */
+        .modal { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); align-items:center; justify-content:center; }
+        .modal-content { background:white; padding:20px; border-radius:10px; width:85%; }
+        input { width:100%; padding:12px; margin:10px 0; border:1px solid #ddd; border-radius:8px; box-sizing:border-box; }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <div class="card setting-section">
-        <h3>⚙️ ตั้งค่าเครื่องพิมพ์</h3>
-        <label>IP Xprinter (LAN):</label>
-        <input type="text" id="printer-ip" placeholder="เช่น 192.168.1.100">
-        <button class="btn btn-save" onclick="savePrinter()">💾 บันทึก IP เครื่องพิมพ์</button>
-        <div id="printer-status" class="status-badge">สถานะ: ยังไม่ได้แอดเครื่องพิมพ์</div>
-    </div>
-
+<div id="screen-order" class="screen active">
+    <h2>📝 สั่งอาหารด้วยเสียง</h2>
     <div class="card">
-        <h3>📝 สั่งอาหาร (โต๊ะ <input type="number" id="table-no" style="width: 60px; display: inline; border: none; border-bottom: 2px solid #333; padding: 2px; margin: 0 5px;" placeholder="0">)</h3>
-        <div id="display-list">
-            <p style="color: #999;">กดปุ่มสีแดงแล้วเริ่มพูดเมนู...</p>
-        </div>
-        
-        <button class="btn btn-voice" onclick="startVoice()">🎤 พูดเมนูอาหาร</button>
-        <button class="btn btn-print" onclick="sendToXprinter()">🖨️ สั่งพิมพ์ไปที่ Xprinter</button>
-        <button onclick="clearOrder()" style="background: none; border: none; color: #999; width: 100%; margin-top: 15px; cursor: pointer;">ล้างรายการที่สั่ง</button>
+        <label>ระบุเลขโต๊ะ:</label>
+        <input type="number" id="table-no" placeholder="เช่น 5" style="font-size: 24px;">
+    </div>
+    <div class="card" id="order-list" style="min-height: 150px; font-size: 18px;">
+        <p style="color:#999;">รายการอาหารจะขึ้นตรงนี้...</p>
+    </div>
+    <button class="btn btn-voice" onclick="startVoice()">🎤 แตะเพื่อพูดเมนู</button>
+    <button class="btn btn-print" style="margin-top:20px;" onclick="printOrder()">🖨️ สั่งพิมพ์เข้าครัว</button>
+</div>
+
+<div id="screen-settings" class="screen">
+    <h2>⚙️ การตั้งค่าเครื่องพิมพ์</h2>
+    <div class="card">
+        <div id="printer-display-list">
+            </div>
+        <button class="btn" style="background:var(--primary); color:white;" onclick="openModal()">+ เพิ่มเครื่องพิมพ์ (LAN)</button>
     </div>
 </div>
 
-<script>
-    let orders = [];
-    
-    // โหลด IP ที่เคยแอดไว้ตอนเปิดหน้าเว็บ
-    window.onload = function() {
-        const savedIP = localStorage.getItem('xprinter_ip');
-        if (savedIP) {
-            document.getElementById('printer-ip').value = savedIP;
-            document.getElementById('printer-status').innerText = "สถานะ: เชื่อมต่อกับ " + savedIP;
-            document.getElementById('printer-status').style.background = "#d1e7dd";
-            document.getElementById('printer-status').style.color = "#0f5132";
-        }
-    };
+<div class="modal" id="printerModal">
+    <div class="modal-content">
+        <h3>แอดเครื่องพิมพ์ใหม่</h3>
+        <input type="text" id="p-name" placeholder="ชื่อเครื่องพิมพ์ (เช่น ครัว)">
+        <input type="text" id="p-ip" placeholder="IP Address (เช่น 192.168.1.78)">
+        <button class="btn" style="background:var(--primary); color:white;" onclick="addPrinter()">บันทึกเครื่องพิมพ์</button>
+        <button onclick="closeModal()" style="background:none; border:none; width:100%; margin-top:10px;">ยกเลิก</button>
+    </div>
+</div>
 
-    function savePrinter() {
-        const ip = document.getElementById('printer-ip').value;
-        if (ip) {
-            localStorage.setItem('xprinter_ip', ip);
-            alert("บันทึก IP เครื่องพิมพ์เรียบร้อยแล้ว!");
-            location.reload(); // รีโหลดเพื่ออัปเดตสถานะ
+<div class="bottom-nav">
+    <div class="nav-item active" onclick="switchTab('order')">🛒 สั่งอาหาร</div>
+    <div class="nav-item" onclick="switchTab('settings')">⚙️ ตั้งค่า</div>
+</div>
+
+<script>
+    let printers = JSON.parse(localStorage.getItem('my_printers')) || [];
+    let currentOrders = [];
+
+    // ระบบสลับหน้าจอ
+    function switchTab(tab) {
+        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+        document.getElementById('screen-' + tab).classList.add('active');
+        event.currentTarget.classList.add('active');
+    }
+
+    // ระบบแอดเครื่องพิมพ์
+    function openModal() { document.getElementById('printerModal').style.display = 'flex'; }
+    function closeModal() { document.getElementById('printerModal').style.display = 'none'; }
+
+    function addPrinter() {
+        const name = document.getElementById('p-name').value;
+        const ip = document.getElementById('p-ip').value;
+        if(name && ip) {
+            printers.push({ name, ip });
+            localStorage.setItem('my_printers', JSON.stringify(printers));
+            renderPrinters();
+            closeModal();
         }
     }
 
+    function renderPrinters() {
+        const list = document.getElementById('printer-display-list');
+        list.innerHTML = printers.length ? '' : '<p style="color:#999;">ยังไม่มีเครื่องพิมพ์ที่เชื่อมต่อ</p>';
+        printers.forEach((p, i) => {
+            list.innerHTML += `
+                <div class="printer-card">
+                    <div><strong>เครื่องพิมพ์${p.name}</strong><br><small style="color:#999;">${p.ip}</small></div>
+                    <button onclick="removePrinter(${i})" style="color:red; border:none; background:none;">ลบ</button>
+                </div>`;
+        });
+    }
+
+    // ระบบรับเสียง
     const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
     recognition.lang = 'th-TH';
 
-    function startVoice() {
-        recognition.start();
-    }
-
-    recognition.onresult = (event) => {
-        const text = event.results[0][0].transcript;
-        orders.push(text);
-        renderOrders();
+    function startVoice() { recognition.start(); }
+    recognition.onresult = (e) => {
+        const text = e.results[0][0].transcript;
+        currentOrders.push(text);
+        const list = document.getElementById('order-list');
+        list.innerHTML = currentOrders.map((o, i) => `<div>${i+1}. ${o}</div>`).join('');
     };
 
-    function renderOrders() {
-        const list = document.getElementById('display-list');
-        if (orders.length === 0) {
-            list.innerHTML = '<p style="color: #999;">กดปุ่มสีแดงแล้วเริ่มพูดเมนู...</p>';
-            return;
+    // ระบบสั่งพิมพ์ (ยิงเข้าทุึกเครื่องที่แอดไว้)
+    async function printOrder() {
+        if(printers.length === 0) return alert("กรุณาแอดเครื่องพิมพ์ในหน้าตั้งค่าก่อนครับ");
+        const table = document.getElementById('table-no').value;
+        let bill = `โต๊ะ: ${table}\n----------\n` + currentOrders.join('\n') + `\n----------\n\n\n`;
+
+        for(let p of printers) {
+            fetch(`http://${p.ip}/cgi-bin/print`, { method: 'POST', mode: 'no-cors', body: bill });
         }
-        list.innerHTML = orders.map((item, i) => `<div class="item">${i+1}. ${item}</div>`).join('');
+        alert("ส่งคำสั่งพิมพ์ไปที่เครื่องพิมพ์ " + printers.length + " เครื่องเรียบร้อย");
+        currentOrders = [];
+        document.getElementById('order-list').innerHTML = '<p style="color:#999;">รายการอาหารจะขึ้นตรงนี้...</p>';
     }
 
-    async function sendToXprinter() {
-        const ip = localStorage.getItem('xprinter_ip');
-        const table = document.getElementById('table-no').value || "0";
-
-        if (!ip) return alert("กรุณาแอด IP เครื่องพิมพ์ในส่วนตั้งค่าก่อนครับ");
-        if (orders.length === 0) return alert("กรุณาสั่งอาหารก่อนพิมพ์");
-
-        // สร้างข้อมูลส่งเข้าเครื่องพิมพ์
-        let billData = `Table: ${table}\n----------------\n`;
-        orders.forEach((item, i) => { billData += `${i+1}. ${item}\n`; });
-        billData += `----------------\n\n\n\n`;
-
-        try {
-            // ยิงข้อมูลไปที่ Xprinter โดยตรงผ่านพอร์ต 80 (Web Interface)
-            await fetch(`http://${ip}/cgi-bin/print`, {
-                method: 'POST',
-                mode: 'no-cors',
-                body: billData
-            });
-            alert("ส่งคำสั่งพิมพ์ไปที่เครื่องเรียบร้อย!");
-        } catch (e) {
-            alert("เกิดข้อผิดพลาดในการเชื่อมต่อ: " + e.message);
-        }
+    function removePrinter(i) {
+        printers.splice(i, 1);
+        localStorage.setItem('my_printers', JSON.stringify(printers));
+        renderPrinters();
     }
 
-    function clearOrder() {
-        orders = [];
-        renderOrders();
-    }
+    renderPrinters();
 </script>
-
 </body>
 </html>
