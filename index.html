@@ -3,100 +3,127 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Voice POS to Xprinter</title>
+    <title>Voice POS - Xprinter</title>
     <style>
-        body { font-family: 'Tahoma', sans-serif; background: #f0f2f5; padding: 20px; display: flex; flex-direction: column; align-items: center; }
-        .card { background: white; width: 100%; max-width: 400px; padding: 25px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
-        h2 { text-align: center; color: #1a73e8; }
-        .input-group { margin-bottom: 15px; }
-        label { display: block; margin-bottom: 5px; font-weight: bold; color: #555; }
-        input { width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 10px; font-size: 16px; box-sizing: border-box; }
-        #order-list { background: #fafafa; border: 1px dashed #bbb; padding: 15px; min-height: 120px; border-radius: 10px; margin: 15px 0; font-size: 18px; }
-        .btn { width: 100%; padding: 15px; border: none; border-radius: 12px; font-size: 18px; font-weight: bold; cursor: pointer; margin-top: 10px; transition: 0.3s; }
-        .btn-voice { background: #ea4335; color: white; }
-        .btn-print { background: #34a853; color: white; }
-        .status { font-size: 14px; text-align: center; margin-top: 10px; color: #666; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f8f9fa; margin: 0; padding: 15px; }
+        .container { max-width: 450px; margin: auto; }
+        .card { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); margin-bottom: 15px; }
+        h3 { margin-top: 0; color: #333; display: flex; align-items: center; }
+        
+        /* ส่วนตั้งค่า (Add Printer) */
+        .setting-section { background: #e9ecef; border-left: 5px solid #0d6efd; }
+        input[type="text"], input[type="number"] { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
+        
+        /* ส่วนสั่งอาหาร */
+        #display-list { min-height: 100px; border-bottom: 2px solid #eee; margin-bottom: 15px; font-size: 18px; color: #444; }
+        .item { padding: 8px 0; border-bottom: 1px solid #f1f1f1; }
+        
+        /* ปุ่มต่างๆ */
+        .btn { width: 100%; padding: 16px; border: none; border-radius: 10px; font-size: 18px; font-weight: bold; cursor: pointer; transition: 0.2s; margin-top: 10px; }
+        .btn-save { background: #0d6efd; color: white; padding: 8px; font-size: 14px; }
+        .btn-voice { background: #dc3545; color: white; box-shadow: 0 4px 0 #b02a37; }
+        .btn-voice:active { transform: translateY(4px); box-shadow: none; }
+        .btn-print { background: #198754; color: white; }
+        
+        .status-badge { font-size: 12px; padding: 4px 8px; border-radius: 5px; background: #eee; color: #666; display: inline-block; margin-top: 5px; }
     </style>
 </head>
 <body>
 
-<div class="card">
-    <h2>🚀 Quick POS</h2>
-    
-    <div class="input-group">
-        <label>IP เครื่องพิมพ์ Xprinter:</label>
-        <input type="text" id="printer-ip" placeholder="เช่น 192.168.1.100" value="">
+<div class="container">
+    <div class="card setting-section">
+        <h3>⚙️ ตั้งค่าเครื่องพิมพ์</h3>
+        <label>IP Xprinter (LAN):</label>
+        <input type="text" id="printer-ip" placeholder="เช่น 192.168.1.100">
+        <button class="btn btn-save" onclick="savePrinter()">💾 บันทึก IP เครื่องพิมพ์</button>
+        <div id="printer-status" class="status-badge">สถานะ: ยังไม่ได้แอดเครื่องพิมพ์</div>
     </div>
 
-    <div class="input-group">
-        <label>เลขโต๊ะ:</label>
-        <input type="number" id="table-no" placeholder="00">
+    <div class="card">
+        <h3>📝 สั่งอาหาร (โต๊ะ <input type="number" id="table-no" style="width: 60px; display: inline; border: none; border-bottom: 2px solid #333; padding: 2px; margin: 0 5px;" placeholder="0">)</h3>
+        <div id="display-list">
+            <p style="color: #999;">กดปุ่มสีแดงแล้วเริ่มพูดเมนู...</p>
+        </div>
+        
+        <button class="btn btn-voice" onclick="startVoice()">🎤 พูดเมนูอาหาร</button>
+        <button class="btn btn-print" onclick="sendToXprinter()">🖨️ สั่งพิมพ์ไปที่ Xprinter</button>
+        <button onclick="clearOrder()" style="background: none; border: none; color: #999; width: 100%; margin-top: 15px; cursor: pointer;">ล้างรายการที่สั่ง</button>
     </div>
-
-    <div id="order-list">รายการอาหาร...</div>
-
-    <button class="btn btn-voice" onclick="startVoice()">🎤 พูดเมนูที่ละอย่าง</button>
-    <button class="btn btn-print" onclick="sendToXprinter()">🖨️ สั่งพิมพ์ทันที</button>
-    
-    <div id="status" class="status">สถานะ: พร้อมใช้งาน</div>
 </div>
 
 <script>
     let orders = [];
+    
+    // โหลด IP ที่เคยแอดไว้ตอนเปิดหน้าเว็บ
+    window.onload = function() {
+        const savedIP = localStorage.getItem('xprinter_ip');
+        if (savedIP) {
+            document.getElementById('printer-ip').value = savedIP;
+            document.getElementById('printer-status').innerText = "สถานะ: เชื่อมต่อกับ " + savedIP;
+            document.getElementById('printer-status').style.background = "#d1e7dd";
+            document.getElementById('printer-status').style.color = "#0f5132";
+        }
+    };
+
+    function savePrinter() {
+        const ip = document.getElementById('printer-ip').value;
+        if (ip) {
+            localStorage.setItem('xprinter_ip', ip);
+            alert("บันทึก IP เครื่องพิมพ์เรียบร้อยแล้ว!");
+            location.reload(); // รีโหลดเพื่ออัปเดตสถานะ
+        }
+    }
+
     const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
     recognition.lang = 'th-TH';
 
     function startVoice() {
         recognition.start();
-        document.getElementById('status').innerText = "กำลังฟัง...";
     }
 
     recognition.onresult = (event) => {
         const text = event.results[0][0].transcript;
         orders.push(text);
         renderOrders();
-        document.getElementById('status').innerText = "เพิ่มเมนูสำเร็จ";
     };
 
     function renderOrders() {
-        const list = document.getElementById('order-list');
-        list.innerHTML = orders.map((item, i) => `<div>${i+1}. ${item}</div>`).join('');
+        const list = document.getElementById('display-list');
+        if (orders.length === 0) {
+            list.innerHTML = '<p style="color: #999;">กดปุ่มสีแดงแล้วเริ่มพูดเมนู...</p>';
+            return;
+        }
+        list.innerHTML = orders.map((item, i) => `<div class="item">${i+1}. ${item}</div>`).join('');
     }
 
     async function sendToXprinter() {
-        const ip = document.getElementById('printer-ip').value;
-        const table = document.getElementById('table-no').value;
-        const statusDiv = document.getElementById('status');
+        const ip = localStorage.getItem('xprinter_ip');
+        const table = document.getElementById('table-no').value || "0";
 
-        if (!ip) return alert("กรุณาใส่ IP เครื่องพิมพ์");
+        if (!ip) return alert("กรุณาแอด IP เครื่องพิมพ์ในส่วนตั้งค่าก่อนครับ");
+        if (orders.length === 0) return alert("กรุณาสั่งอาหารก่อนพิมพ์");
 
-        statusDiv.innerText = "กำลังส่งข้อมูลไปที่เครื่องพิมพ์...";
+        // สร้างข้อมูลส่งเข้าเครื่องพิมพ์
+        let billData = `Table: ${table}\n----------------\n`;
+        orders.forEach((item, i) => { billData += `${i+1}. ${item}\n`; });
+        billData += `----------------\n\n\n\n`;
 
-        // สร้างเนื้อหาบิล
-        let billData = `โต๊ะ: ${table}\n`;
-        billData += `----------------\n`;
-        orders.forEach((item, i) => {
-            billData += `${i+1}. ${item}\n`;
-        });
-        billData += `----------------\n\n\n`;
-
-        // ลองยิงผ่าน HTTP POST (โปรโตคอลที่ Xprinter Web Interface ใช้)
         try {
-            // หมายเหตุ: Xprinter ส่วนใหญ่ใช้ endpoint /cgi-bin/print หรือ /print
+            // ยิงข้อมูลไปที่ Xprinter โดยตรงผ่านพอร์ต 80 (Web Interface)
             await fetch(`http://${ip}/cgi-bin/print`, {
                 method: 'POST',
-                mode: 'no-cors', // บังคับให้ข้ามเรื่องความปลอดภัย Browser
-                headers: { 'Content-Type': 'text/plain' },
+                mode: 'no-cors',
                 body: billData
             });
-            
-            statusDiv.innerText = "สั่งพิมพ์สำเร็จ (ลองเช็คที่เครื่อง)";
-            orders = []; // ล้างออเดอร์หลังพิมพ์
-            renderOrders();
-        } catch (error) {
-            statusDiv.innerText = "เกิดข้อผิดพลาด: " + error.message;
-            console.error(error);
+            alert("ส่งคำสั่งพิมพ์ไปที่เครื่องเรียบร้อย!");
+        } catch (e) {
+            alert("เกิดข้อผิดพลาดในการเชื่อมต่อ: " + e.message);
         }
+    }
+
+    function clearOrder() {
+        orders = [];
+        renderOrders();
     }
 </script>
 
